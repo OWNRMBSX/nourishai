@@ -33,11 +33,26 @@ interface OnboardingData {
 
 const TOTAL_STEPS = 6;
 
+// ── Unit conversion helpers ──
+function ftInToCm(feet: number, inches: number): number {
+  return Math.round((feet * 12 + inches) * 2.54);
+}
+function lbToKg(lb: number): number {
+  return Math.round(lb / 2.20462 * 10) / 10;
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Imperial input state
+  const [heightFt, setHeightFt] = useState<number | "">(5);
+  const [heightIn, setHeightIn] = useState<number | "">(7);
+  const [weightLb, setWeightLb] = useState<number | "">(150);
+  const [goalLb, setGoalLb] = useState<number | "">(140);
+
   const [data, setData] = useState<OnboardingData>({
     name: "",
     age: "",
@@ -67,9 +82,8 @@ export default function OnboardingPage() {
           data.name.trim() !== "" &&
           data.age !== "" &&
           data.sex !== "" &&
-          data.height_cm !== "" &&
-          data.current_weight_kg !== "" &&
-          data.goal_weight_kg !== ""
+          heightFt !== "" &&
+          weightLb !== ""
         );
       case 2:
         return data.activity_level !== "";
@@ -86,8 +100,8 @@ export default function OnboardingPage() {
 
   function getTDEE() {
     if (
-      data.current_weight_kg === "" ||
-      data.height_cm === "" ||
+      weightLb === "" ||
+      heightFt === "" ||
       data.age === "" ||
       data.sex === "" ||
       !data.activity_level
@@ -95,8 +109,8 @@ export default function OnboardingPage() {
       return null;
     }
     return calculateTDEE(
-      Number(data.current_weight_kg),
-      Number(data.height_cm),
+      lbToKg(Number(weightLb)),
+      ftInToCm(Number(heightFt), Number(heightIn) || 0),
       Number(data.age),
       data.sex as "female" | "male",
       data.activity_level
@@ -104,9 +118,20 @@ export default function OnboardingPage() {
   }
 
   function handleNext() {
+    if (step === 1) {
+      // Convert imperial to metric when leaving personal stats
+      const cm = ftInToCm(Number(heightFt) || 0, Number(heightIn) || 0);
+      const kg = lbToKg(Number(weightLb) || 0);
+      const goalKg = lbToKg(Number(goalLb) || 0);
+      setData((prev) => ({ ...prev, height_cm: cm, current_weight_kg: kg, goal_weight_kg: goalKg }));
+    }
     if (step === 2) {
       // Pre-fill calorie target with deficit when entering step 3
-      const tdee = getTDEE();
+      const cm = ftInToCm(Number(heightFt) || 0, Number(heightIn) || 0);
+      const kg = lbToKg(Number(weightLb) || 0);
+      const tdee = data.sex && data.age !== "" && data.activity_level
+        ? calculateTDEE(kg, cm, Number(data.age), data.sex as "female" | "male", data.activity_level)
+        : null;
       if (tdee && data.daily_calorie_target === "") {
         update("daily_calorie_target", tdee.deficit);
       }
@@ -203,49 +228,73 @@ export default function OnboardingPage() {
           onChange={(e) => update("name", e.target.value)}
           className={inputClass}
         />
-        <input
-          type="number"
-          placeholder="Age"
-          value={data.age}
-          onChange={(e) => update("age", e.target.value === "" ? "" : Number(e.target.value))}
-          className={inputClass}
-        />
-        <select
-          value={data.sex}
-          onChange={(e) => update("sex", e.target.value as "female" | "male" | "")}
-          className={inputClass}
-        >
-          <option value="" disabled>
-            Sex
-          </option>
-          <option value="female">Female</option>
-          <option value="male">Male</option>
-        </select>
-        <input
-          type="number"
-          placeholder="Height (cm)"
-          value={data.height_cm}
-          onChange={(e) => update("height_cm", e.target.value === "" ? "" : Number(e.target.value))}
-          className={inputClass}
-        />
-        <input
-          type="number"
-          placeholder="Current Weight (kg)"
-          value={data.current_weight_kg}
-          onChange={(e) =>
-            update("current_weight_kg", e.target.value === "" ? "" : Number(e.target.value))
-          }
-          className={inputClass}
-        />
-        <input
-          type="number"
-          placeholder="Goal Weight (kg)"
-          value={data.goal_weight_kg}
-          onChange={(e) =>
-            update("goal_weight_kg", e.target.value === "" ? "" : Number(e.target.value))
-          }
-          className={inputClass}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            type="number"
+            placeholder="Age"
+            value={data.age}
+            onChange={(e) => update("age", e.target.value === "" ? "" : Number(e.target.value))}
+            className={inputClass}
+          />
+          <select
+            value={data.sex}
+            onChange={(e) => update("sex", e.target.value as "female" | "male" | "")}
+            className={inputClass}
+          >
+            <option value="" disabled>Sex</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm text-[#7A756E] mb-1">Height</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="relative">
+              <input
+                type="number"
+                placeholder="5"
+                value={heightFt}
+                onChange={(e) => setHeightFt(e.target.value === "" ? "" : Number(e.target.value))}
+                className={inputClass}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A756E] text-sm">ft</span>
+            </div>
+            <div className="relative">
+              <input
+                type="number"
+                placeholder="7"
+                value={heightIn}
+                onChange={(e) => setHeightIn(e.target.value === "" ? "" : Number(e.target.value))}
+                className={inputClass}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A756E] text-sm">in</span>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="relative">
+            <label className="block text-sm text-[#7A756E] mb-1">Current Weight</label>
+            <input
+              type="number"
+              placeholder="150"
+              value={weightLb}
+              onChange={(e) => setWeightLb(e.target.value === "" ? "" : Number(e.target.value))}
+              className={inputClass}
+            />
+            <span className="absolute right-3 bottom-3 text-[#7A756E] text-sm">lb</span>
+          </div>
+          <div className="relative">
+            <label className="block text-sm text-[#7A756E] mb-1">Goal Weight</label>
+            <input
+              type="number"
+              placeholder="140"
+              value={goalLb}
+              onChange={(e) => setGoalLb(e.target.value === "" ? "" : Number(e.target.value))}
+              className={inputClass}
+            />
+            <span className="absolute right-3 bottom-3 text-[#7A756E] text-sm">lb</span>
+          </div>
+        </div>
       </div>
     );
   }
