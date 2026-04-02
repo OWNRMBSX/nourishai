@@ -18,36 +18,23 @@ interface PlanRequestBody {
   resting_heart_rate?: number;
   avg_sleep_hours?: number;
   stress_level?: string;
-  oura_screenshot?: string; // base64
+  oura_screenshot?: string;
 }
 
-export async function POST(request: Request) {
-  try {
-    const body: PlanRequestBody = await request.json();
+function buildPrompt(body: PlanRequestBody): string {
+  const hasBiometrics =
+    body.resting_heart_rate || body.avg_sleep_hours || body.stress_level;
 
-    if (!body.age || !body.sex || !body.height_cm || !body.weight_kg) {
-      return NextResponse.json(
-        { error: 'age, sex, height_cm, and weight_kg are required' },
-        { status: 400 }
-      );
-    }
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-    const hasBiometrics =
-      body.resting_heart_rate || body.avg_sleep_hours || body.stress_level;
-
-    const biometricSection = hasBiometrics
-      ? `
+  const biometricSection = hasBiometrics
+    ? `
 Biometric Data:
 - Resting heart rate: ${body.resting_heart_rate ?? 'not provided'} bpm
 - Average sleep: ${body.avg_sleep_hours ?? 'not provided'} hours/night
 - Stress level: ${body.stress_level ?? 'not provided'}
 `
-      : '';
+    : '';
 
-    const prompt = `You are an expert sports nutritionist and fitness coach. Generate a comprehensive, personalized nutrition and fitness plan based on the following profile.
+  return `You are an expert sports nutritionist and fitness coach. Generate a comprehensive, personalized nutrition and fitness plan based on the following profile.
 
 Client Profile:
 - Name: ${body.name || 'Client'}
@@ -79,7 +66,7 @@ Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
   "fat_g": <number>,
   "bmr": <number>,
   "tdee": <number>,
-  "explanation": "<string explaining why these targets were chosen, referencing the person's stats and goals>",
+  "explanation": "<string explaining why these targets were chosen>",
   "weekly_schedule": [
     { "day": "Monday", "meals": ["Meal 1 description", "Meal 2 description", "Meal 3 description"] },
     { "day": "Tuesday", "meals": ["...", "...", "..."] },
@@ -100,23 +87,63 @@ Return ONLY valid JSON (no markdown, no code blocks) with this exact structure:
 }
 
 Make the plan practical, culturally diverse in food options, and appropriate for the dietary restrictions specified. Protein target should be 1.6-2.2g per kg for muscle building, 1.2-1.6g per kg otherwise. Tips should be highly personalized and actionable.`;
+}
 
-    const parts: (string | { inlineData: { mimeType: string; data: string } })[] =
-      [prompt];
+async function tryGemini(prompt: string, ouraScreenshot?: string): Promise<string> {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    if (body.oura_screenshot) {
-      parts.push({
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: body.oura_screenshot,
-        },
-      });
+  const parts: (string | { inlineData: { mimeType: string; data: string } })[] = [prompt];
+  if (ouraScreenshot) {
+    parts.push({ inlineData: { mimeType: 'image/jpeg', data: ouraScreenshot } });
+  }
+
+  const result = await model.generateContent(parts);
+  return result.response.text();
+}
+
+async function tryOpenAI(prompt: string): Promise<string> {
+  const { default: OpenAI } = await import('openai');
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: 'You are an expert sports nutritionist. Return only valid JSON.' },
+      { role: 'user', content: prompt },
+    ],
+    response_format: { type: 'json_object' },
+    max_tokens: 4000,
+  });
+
+  return response.choices[0]?.message?.content || '';
+}
+
+export async function POST(request: Request) {
+  try {
+    const body: PlanRequestBody = await request.json();
+
+    if (!body.age || !body.sex || !body.height_cm || !body.weight_kg) {
+      return NextResponse.json(
+        { error: 'age, sex, height_cm, and weight_kg are required' },
+        { status: 400 }
+      );
     }
 
-    const result = await model.generateContent(parts);
-    const text = result.response.text();
+    const prompt = buildPrompt(body);
+    let text: string;
 
-    // Strip markdown code blocks if present
+    // Try Gemini first (free), fall back to OpenAI
+    try {
+      text = await tryGemini(prompt, body.oura_screenshot);
+    } catch (geminiError) {
+      console.warn('Gemini failed, trying OpenAI fallback:', geminiError instanceof Error ? geminiError.message : geminiError);
+      if (!process.env.OPENAI_API_KEY) {
+        throw geminiError; // No fallback available
+      }
+      text = await tryOpenAI(prompt);
+    }
+
     const cleaned = text
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
