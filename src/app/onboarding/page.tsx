@@ -481,15 +481,24 @@ export default function OnboardingPage() {
 
   /* ---- Render ---- */
 
-  const steps = [StepWelcome, StepPersonalStats, StepActivityLevel, StepTargets, StepDietaryRestrictions, StepAllSet];
-  const CurrentStep = steps[step];
+  function renderStep() {
+    switch (step) {
+      case 0: return StepWelcome();
+      case 1: return StepPersonalStats();
+      case 2: return StepActivityLevel();
+      case 3: return StepTargets();
+      case 4: return StepDietaryRestrictions();
+      case 5: return StepAllSet();
+      default: return null;
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[#FAF8F5]">
       <div className="max-w-lg w-full">
-        <ProgressDots />
+        {ProgressDots()}
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          <CurrentStep />
+          {renderStep()}
 
           {/* Navigation buttons for steps 1-4 */}
           {step >= 1 && step <= 4 && (
