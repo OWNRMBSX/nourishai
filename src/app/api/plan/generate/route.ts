@@ -126,6 +126,13 @@ Make the plan practical, culturally diverse in food options, and appropriate for
     return NextResponse.json(parsed);
   } catch (error) {
     console.error('plan/generate error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('429') || message.includes('quota')) {
+      return NextResponse.json(
+        { error: 'AI is temporarily busy due to high demand. Please try again in a minute.' },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to generate plan. Please try again.' },
       { status: 500 }
