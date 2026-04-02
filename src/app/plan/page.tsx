@@ -77,13 +77,14 @@ const DIET_RESTRICTIONS = [
 
 /* ---------- component ---------- */
 export default function PlanPage() {
-  /* form state */
+  /* form state — imperial units */
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<"female" | "male">("male");
-  const [heightCm, setHeightCm] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [goalWeightKg, setGoalWeightKg] = useState("");
+  const [heightFt, setHeightFt] = useState("5");
+  const [heightIn, setHeightIn] = useState("7");
+  const [weightLb, setWeightLb] = useState("");
+  const [goalWeightLb, setGoalWeightLb] = useState("");
 
   const [activityLevel, setActivityLevel] = useState("moderate");
   const [exerciseTypes, setExerciseTypes] = useState<string[]>([]);
@@ -146,13 +147,18 @@ export default function PlanPage() {
   }
 
   async function handleGenerate() {
-    if (!age || !heightCm || !weightKg) {
+    if (!age || !heightFt || !weightLb) {
       setError("Please fill in age, height, and weight.");
       return;
     }
     setError("");
     setLoading(true);
     setPlan(null);
+
+    // Convert imperial to metric for the API
+    const heightCm = Math.round((Number(heightFt) * 12 + Number(heightIn || 0)) * 2.54);
+    const weightKg = Math.round(Number(weightLb) / 2.20462 * 10) / 10;
+    const goalKg = goalWeightLb ? Math.round(Number(goalWeightLb) / 2.20462 * 10) / 10 : weightKg;
 
     try {
       const res = await fetch("/api/plan/generate", {
@@ -162,9 +168,9 @@ export default function PlanPage() {
           name: name || undefined,
           age: Number(age),
           sex,
-          height_cm: Number(heightCm),
-          weight_kg: Number(weightKg),
-          goal_weight_kg: Number(goalWeightKg) || Number(weightKg),
+          height_cm: heightCm,
+          weight_kg: weightKg,
+          goal_weight_kg: goalKg,
           activity_level: activityLevel,
           exercise_types: exerciseTypes,
           exercise_frequency: exerciseFrequency,
@@ -326,41 +332,56 @@ export default function PlanPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-[#7A756E] mb-1">
-                Height (cm) *
-              </label>
-              <input
-                type="number"
-                placeholder="175"
-                value={heightCm}
-                onChange={(e) => setHeightCm(e.target.value)}
-                className="w-full rounded-lg border border-[#E8E3DC] bg-white px-3 py-2.5 text-sm text-[#2D2A26] focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[#7A756E] mb-1">
-                Current Weight (kg) *
-              </label>
-              <input
-                type="number"
-                placeholder="80"
-                value={weightKg}
-                onChange={(e) => setWeightKg(e.target.value)}
-                className="w-full rounded-lg border border-[#E8E3DC] bg-white px-3 py-2.5 text-sm text-[#2D2A26] focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50]"
-              />
-            </div>
-
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-[#7A756E] mb-1">
-                Goal Weight (kg)
+                Height *
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
+                  <input
+                    type="number"
+                    placeholder="5"
+                    value={heightFt}
+                    onChange={(e) => setHeightFt(e.target.value)}
+                    className="w-full rounded-lg border border-[#E8E3DC] bg-white px-3 py-2.5 text-sm text-[#2D2A26] focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50]"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A756E] text-sm">ft</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    placeholder="7"
+                    value={heightIn}
+                    onChange={(e) => setHeightIn(e.target.value)}
+                    className="w-full rounded-lg border border-[#E8E3DC] bg-white px-3 py-2.5 text-sm text-[#2D2A26] focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50]"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7A756E] text-sm">in</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#7A756E] mb-1">
+                Current Weight (lb) *
               </label>
               <input
                 type="number"
-                placeholder="75"
-                value={goalWeightKg}
-                onChange={(e) => setGoalWeightKg(e.target.value)}
+                placeholder="150"
+                value={weightLb}
+                onChange={(e) => setWeightLb(e.target.value)}
+                className="w-full rounded-lg border border-[#E8E3DC] bg-white px-3 py-2.5 text-sm text-[#2D2A26] focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#7A756E] mb-1">
+                Goal Weight (lb)
+              </label>
+              <input
+                type="number"
+                placeholder="140"
+                value={goalWeightLb}
+                onChange={(e) => setGoalWeightLb(e.target.value)}
                 className="w-full rounded-lg border border-[#E8E3DC] bg-white px-3 py-2.5 text-sm text-[#2D2A26] focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 focus:border-[#4CAF50]"
               />
             </div>

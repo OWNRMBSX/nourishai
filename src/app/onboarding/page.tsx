@@ -417,11 +417,11 @@ export default function OnboardingPage() {
         </div>
 
         <div>
-          <label className="block text-sm text-[#7A756E] mb-1">Water Goal (ml)</label>
+          <label className="block text-sm text-[#7A756E] mb-1">Water Goal (oz)</label>
           <input
             type="number"
-            value={data.water_goal_ml}
-            onChange={(e) => update("water_goal_ml", Number(e.target.value) || 0)}
+            value={Math.round(data.water_goal_ml / 29.5735)}
+            onChange={(e) => update("water_goal_ml", Math.round(Number(e.target.value) * 29.5735) || 0)}
             className={inputClass}
           />
           <p className="text-xs text-[#7A756E] mt-1">

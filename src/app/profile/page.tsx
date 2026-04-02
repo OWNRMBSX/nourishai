@@ -357,8 +357,8 @@ export default function ProfilePage() {
         <h2 className="text-sm font-semibold text-[#7A756E] uppercase tracking-wide mb-4">Water Goal</h2>
         {editing ? (
           <label className="block">
-            <span className="text-xs text-[#7A756E]">Water Goal (ml)</span>
-            <input type="number" value={editData.water_goal_ml ?? ""} onChange={(e) => updateEditField("water_goal_ml", Number(e.target.value))} className={inputClass} />
+            <span className="text-xs text-[#7A756E]">Water Goal (oz)</span>
+            <input type="number" value={Math.round((editData.water_goal_ml ?? 3000) / 29.5735)} onChange={(e) => updateEditField("water_goal_ml", Math.round(Number(e.target.value) * 29.5735))} className={inputClass} />
           </label>
         ) : (
           <p className="text-lg font-bold text-[#2D2A26]">
